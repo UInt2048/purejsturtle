@@ -1,4 +1,3 @@
-//jshint esversion: 5
 function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton) {
   "use strict";
   this.reset();
@@ -28,11 +27,11 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
     this.visible = true;
     this.redraw = true;
     this.wrap = true;
-    this.color = {};
-    this.color.r = 0;
-    this.color.g = 0;
-    this.color.b = 0;
-    this.color.a = 1;
+    this.colour = {};
+    this.colour.r = 0;
+    this.colour.g = 0;
+    this.colour.b = 0;
+    this.colour.a = 1;
 
     // Declare Functions
     this.declareCanvasFuncs();
@@ -63,6 +62,19 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       this.tImageCan = document.getElementById(id);
       this.tImageCon = document.getElementById(id).getContext('2d');
     };
+    
+    // Use for single context drawing
+    this.callContextDrawing = function callContextDrawing(_function, args, context) {
+    	context = context || this.tImageCon;
+      context.save();
+      this.centerCoords(context);
+      context.beginPath();
+      args.push(context);
+      _function.apply(this, args);
+      context.restore();
+      this.draw();
+    }
+    
     // Draws a line in context; must have context.beginPath() and context.stroke()
     this.line = function line(x1, y1, x2, y2, context) {
       context = context || this.tImageCon;
@@ -70,10 +82,12 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       context.lineTo(x2, y2);
     };
     // Draws a circle in context; must have context.beginPath() and context.stroke()
-    this.circle = function circle(x, y, radius, context) {
+    this.circle = function circle(x, y, radius, fill, context) {
       context = context || this.tImageCon;
       context.arc(x, y, radius, 0, 2 * Math.PI);
+      if (fill) context.fill();
     };
+    
     // Draws a rect in context with top-left corner at x,y; must have context.beginPath() and context.stroke()
     this.rect = function rect(x, y, width, height, context) {
       context = context || this.tImageCon;
@@ -82,19 +96,20 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
     // Alters canvas line width
     this.setWidth = function setWidth(width, context) {
       context = context || this.tImageCon;
+      if (context == this.tImageCon) this.width = width;
       context.lineWidth = width;
     };
-    // Alters canvas line color
-    this.setColor = function setColor(r, g, b, a, context) {
+    // Alters canvas line colour
+    this.setColour = function setColour(r, g, b, a, context) {
       context = context || this.tImageCon;
       context.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + a + ")";
     };
-    // Alters canvas fill color
-    this.fillColor = function fillColor(r, g, b, a, context) {
+    // Alters canvas fill colour
+    this.fillColour = function fillColour(r, g, b, a, context) {
       context = context || this.tImageCon;
       context.fillStyle = "rgba(" + r + "," + g + "," + b + "," + a + ")";
     };
-    // Inserts image on canvas; CORS is used to allow images from other sites
+    // Inserts image on canvas
     this.addImage = function addImage(url, _x, _y, _context) {
       var x = _x || 0,
         y = _y || 0,
@@ -104,7 +119,7 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       i.src = url;
       i.onload = function() {
         context.drawImage(i, x, y);
-        this.drawIf();
+        this.draw();
       };
     };
     // Returns image data from canvas
@@ -116,7 +131,7 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
     this.putImage = function putImage(data, x, y, context) {
       context = context || this.tImageCon;
       context.putImageData(data, x, y);
-      this.drawIf();
+      this.draw();
     };
     // Gets red from pixel in image data
     this.getRed = function getRed(data, x, y) {
@@ -159,7 +174,7 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       data.data[pos + 3] = a;
     };
     // Sets RGB to pixel in image data
-    this.setRGB = function setRGB(data, x, y, r, g, b, a) {
+    this.setRGBA = function setRGBA(data, x, y, r, g, b, a) {
       var pos = 4 * data.width * y + 4 * x;
       data.data[pos] = r;
       data.data[pos + 1] = g;
@@ -169,7 +184,7 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
     // clear the display, don't move the turtle
     this.clear = function clear() {
       this.clearContext();
-      this.drawIf();
+      this.draw();
     };
     this.clearContext = function clearContext(context) {
       context = context || this.tImageCon;
@@ -178,17 +193,6 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       context.clearRect(0, 0, context.canvas.width, context.canvas.height);
       context.restore();
     };
-  };
-
-  // Drawing Functions
-
-  this.declareDrawFuncs = function declareDrawFuncs() {
-    // draw the turtle and the current image if redraw is true
-    // for complicated drawings it is much faster to turn redraw off
-    this.drawIf = function drawIf() {
-      if (this.redraw) this.draw();
-    };
-
     // use canvas centered coordinates facing upwards
     this.centerCoords = function centerCoords(context) {
       context = context || this.tImageCon;
@@ -199,7 +203,8 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
     };
 
     // draw the turtle and the current image
-    this.draw = function draw() {
+    this.draw = function draw(ignoreRedraw) {
+    	if (!ignoreRedraw && !this.redraw) return;
       this.clearContext(this.turtleCon);
       if (this.visible) {
         var x = this.pos.x;
@@ -227,7 +232,11 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       }
       this.turtleCon.drawImage(this.tImageCan, 0, 0, 300, 300, 0, 0, 300, 300);
     };
+  };
 
+  // Drawing Functions
+
+  this.declareDrawFuncs = function declareDrawFuncs() {
     // Trace the forward motion of the turtle, allowing for possible
     // wrap-around at the boundaries of the canvas.
     this.forward = function forward(distance) {
@@ -284,7 +293,7 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       // only draw if the pen is currently down.
       if (this.penDown) this.activeContext.stroke();
       this.activeContext.restore();
-      this.drawIf();
+      this.draw();
     };
 
     // Move backward
@@ -295,54 +304,29 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       this.left(180);
     };
 
-    // turn edge wrapping on/off
-    this.setWrap = function setWrap(bool) {
-      this.wrap = bool;
-    };
-
-    // show/hide the turtle
-    this.hideTurtle = function hideTurtle() {
-      this.visible = false;
-      this.drawIf();
-    };
-
-    // show/hide the turtle
-    this.showTurtle = function showTurtle() {
-      this.visible = true;
-      this.drawIf();
-    };
-
-    // turn on/off redrawing
-    this.redrawOnMove = function redrawOnMove(bool) {
-      this.redraw = bool;
-    };
-
-    // lift up the pen (don't draw)
-    this.setPenUp = function setPenUp() {
-      this.penDown = false;
-    };
-    // put the pen down (do draw)
-    this.setPenDown = function setPenDown() {
-      this.penDown = true;
-    };
-
     // turn right by an angle in degrees
     this.right = function right(angle) {
       this.angle += this.degToRad(angle);
-      this.drawIf();
+      this.draw();
     };
 
     // turn left by an angle in degrees
     this.left = function left(angle) {
       this.angle -= this.degToRad(angle);
-      this.drawIf();
+      this.draw();
     };
-
+    
+		// hide/show turtle
+    this.setVisible = function setVisible(bool) {
+      this.visible = bool;
+      this.draw();
+    };
+    
     // move the turtle to a particular coordinate (don't draw on the way there)
     this.goto = function goto(x, y) {
       this.pos.x = x;
       this.pos.y = y;
-      this.drawIf();
+      this.draw();
     };
 
     // set the angle of the turtle in degrees
@@ -359,12 +343,6 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       return rad * 180 / Math.PI;
     };
 
-    // set the width of the line
-    this.setWidth = function setWidth(w) {
-      this.width = w;
-      this.tImageCon.lineWidth = w;
-    };
-
     // write some text at the turtle position facing up
     this.write = function write(msg) {
       this.tImageCon.save();
@@ -374,18 +352,18 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       this.tImageCon.translate(-this.pos.x, -this.pos.y);
       this.tImageCon.fillText(msg, this.pos.x, this.pos.y);
       this.tImageCon.restore();
-      this.drawIf();
+      this.draw();
     };
 
     // sets text font
-    this.setFont = function setFont(font) {
-      this.activeContext.font = font;
+    this.setFont = function setFont(fontName) {
+      this.activeContext.font = fontName;
     };
 
     // set the colour of the line using RGB values in the range 0 - 255.
     this.colour = function colour(r, g, b, a) {
-      this.tImageCon.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + a + ")";
-      this.tImageCon.fillStyle = "rgba(" + r + "," + g + "," + b + "," + a + ")";
+      this.setColour(r, g, b, a, this.tImageCon);
+      this.fillColour(r, g, b, a, this.tImageCon);
       this.colour.r = r;
       this.colour.g = g;
       this.colour.b = b;
@@ -403,28 +381,16 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
         this.pos.y + Math.cos(this.angle) * radius, radius, startangle, endangle, clockwise);
       if (this.penDown) this.activeContext.stroke();
       this.tImageCon.restore();
-      this.drawIf();
-    };
-
-    // Create a filled-in circle centered at turtle's position
-    this.dot = function dot(radius) {
-      this.tImageCon.save();
-      this.centerCoords(this.tImageCon);
-      this.tImageCon.beginPath();
-      this.tImageCon.arc(this.pos.x, this.pos.y, radius, 0, 2 * Math.PI, false);
-      this.tImageCon.fill();
-      if (this.penDown) this.tImageCon.stroke();
-      this.tImageCon.restore();
-      this.drawIf();
+      this.draw();
     };
 
     // Generate a random integer between low and hi
     this.random = function random(low, hi) {
       return Math.floor(Math.random() * (hi - low + 1) + low);
     };
-    // Calls f after given ms
-    this.animate = function animate(f, ms) {
-      setInterval(f, ms);
+    // Calls func after given ms
+    this.animate = function animate(func, ms) {
+      return window.setInterval(func, ms);
     };
   };
 
@@ -452,14 +418,12 @@ function Turtle(turtleCan, tImageCan, commandInput, definitionInput, resetButton
       var commandText = this.commandInput.value;
       commandList.push(commandText);
       var definitionsText = this.definitionInput.value;
-      try {
-        // execute code
-        eval(definitionsText + "\n" +commandText);
+      try { // Execute code without using eval
+        Function.prototype.call.apply(Function, [this, definitionsText + "\n\n\n" + commandText])();
       } catch (e) {
         window.alert('Exception thrown:\n' + e);
         throw e;
-      } finally {
-        // clear the command box	
+      } finally { // clear the command box	
         this.commandInput.value = "";
       }
     });
